@@ -1,0 +1,47 @@
+---
+- hosts: all
+  user: itadmin
+  become: yes
+
+  tasks:
+    - name: Set Permission for below Security Files.
+      file:
+        path: "{{ item.path }}"
+        owner: "{{ item.owner }}"
+        group: "{{ item.group }}"
+        mode: "{{ item.mode }}"
+      loop:
+        - { path: '/etc/hosts', mode: '0644', owner: 'root', group: 'root' }
+        - { path: '/etc/passwd', mode: '0644', owner: 'root', group: 'root' }
+        - { path: '/etc/group', mode: '0644', owner: 'root', group: 'root' }
+        - { path: '/etc/shadow', mode: '0400', owner: 'root', group: 'shadow' }
+        - { path: '/etc/services', mode: '0600', owner: 'root', group: 'root' }
+        - { path: '/etc/profile', mode: '0644', owner: 'root', group: 'root' }
+        - { path: '/usr/sbin/ifconfig', mode: '0700', owner: 'root', group: 'root' }
+        - { path: '/usr/bin/last', mode: '0700', owner: 'root', group: 'root' }
+        - { path: '/etc/pam.d/common-auth', mode: '0644', owner: 'root', group: 'root' }
+        - { path: '/etc/pam.d/common-account', mode: '0644', owner: 'root', group: 'root' }
+        - { path: '/var/log/wtmp', mode: '0600', owner: 'root', group: 'utmp' }
+        - { path: '/var/log/btmp', mode: '0600', owner: 'root', group: 'utmp' }
+        - { path: '/var/log/auth.log', mode: '0600', owner: 'syslog', group: 'adm' }
+        - { path: '/var/log/sulog', mode: '0600', owner: 'syslog', group: 'adm' }
+        - { path: '/var/log/syslog', mode: '644', owner: 'syslog', group: 'adm' }
+        - { path: '/etc/hosts.equiv', mode: '0000', owner: 'root', group: 'root' }
+      loop_control:
+        label: "{{ item.path }}"
+
+    - name: FInd /var/log/auth.log file and patterns
+      find:
+        paths: /var/log
+        patterns: "auth.log*"
+        hidden: true
+      register: found_auth_logs
+
+    - name: Set Permission owners and group for auth.log files
+      file:
+        path: "{{ item.auth }}"
+        mode: '0600'
+        owner: 'syslog'
+        group: 'adm'
+        loop: "{{ found_auth_logs }}"
+        label: "{{ item.auth }}"
