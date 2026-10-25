@@ -1,0 +1,32 @@
+---
+- hosts: all
+  user: itadmin
+  become: yes
+
+  vars_files:
+    - expected_permission.yml
+
+  tasks:
+    - name: Get the file permission stats.
+      stat:
+        path: "{{ item.path }}"
+      register: file_stats
+      loop: "{{ file_permissions }}"
+      loop_control:
+        label: "{{ item.path }}"
+
+    - name: Validate the file permissions {{ item.path }}
+      assert:
+        that:
+          - "item.stat.exists"
+          - "item.stat.pw_name == item.item.owner"
+          - "item.stat.gr_name == item.item.group"
+          - "item.stat.mode == item.item.mode"
+        success_msg: "Permissions for {{ item.item.path }} are correct permission and ownership"
+        fail_msg: "Permissions for {{ item.item.path }} are incorrect. Expected mode: {{ item.item.mode }}, owner: {{ item.item.owner }}, group: {{ item.item.group }}, found {{ item.stat.mode }}."
+        quiet: true
+      loop: "{{ file_stats.results }}"
+      when: item.stat.exists is defined and item.stat.exists
+      loop_control:
+        label: "{{ item.item.path }}"
+      ignore_errors: true
