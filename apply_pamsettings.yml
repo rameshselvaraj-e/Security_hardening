@@ -1,0 +1,156 @@
+---
+- hosts: all
+  user: itadmin
+  become: yes
+
+  tasks:
+    - name: Configure Settings for Complexity on /etc/security/pwquality.conf.
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+        backup: yes
+      loop:
+        - { regexp: '^# minlen', line: 'minlen = 8'}
+        - { regexp: '^# dcredit', line: 'dcredit = -1'}
+        - { regexp: '^# ucredit', line: 'ucredit = -1'}
+        - { regexp: '^# lcredit', line: 'lcredit = -1'}
+        - { regexp: '^# ocredit', line: 'ocredit = -1'}
+        - { regexp: '^# minclass', line: 'minclass = 1'}
+
+
+    - name: Limit using a Password was used in past, cannot set same password 2 consecutive on /etc/pam.d/common-password.
+      lineinfile:
+        path: /etc/pam.d/common-password
+        insertafter: '^password\s+requisite\s+pam_pwquality\.so\s+retry=3$'
+        line: 'password        requisite                      pam_pwhistory.so remember=5 use_authtok'
+        state: present
+        backup: yes
+
+    - name: Limit using a Password was used in past, cannot set same password 2 consecutive on /etc/security/pwhistory.conf.
+      lineinfile:
+        path: /etc/security/pwhistory.conf
+        regexp: '^# remember'
+        line: 'remember = 2'
+        state: present
+        backup: yes
+
+    - name: Configure Password MAX and MIN Days before expiry on /etc/login.defs.
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '{{ item.regexp }}'
+        line: '{{ item.line }}'
+        state: present
+        backup: yes
+      loop:
+        - { regexp: '^PASS_MAX_DAYS', line: 'PASS_MAX_DAYS 90'}
+        - { regexp: '^PASS_MIN_DAYS', line: 'PASS_MIN_DAYS 7'}
+        - { regexp: '^PASS_WARN_AGE', line: 'PASS_WARN_AGE 15'}
+
+    - name: Configure PAM update Auth session to 4 from 2 for pam_unix module on /etc/pam.d/common-auth
+      lineinfile:
+        path: /etc/pam.d/common-auth
+        regexp: '^auth\s+\[success=2 default=ignore\]\s+pam_unix\.so\s+nullok$'
+        line: 'auth    [success=4 default=ignore]      pam_unix.so nullok'
+        state: present
+        backup: yes
+
+    - name: Configure PAM update Auth session to 3 from 1 for pam_sss module on /etc/pam.d/common-auth
+      lineinfile:
+        path: /etc/pam.d/common-auth
+        regexp: '^auth\s+\[success=1 default=ignore\]\s+pam_sss\.so\s+use_first_pass$'
+        line: 'auth    [success=3 default=ignore]      pam_sss.so use_first_pass'
+        state: present
+        backup: yes
+
+    - name: Configure PAM Faillock module Auth preauth on /etc/pam.d/common-auth.
+      lineinfile:
+        path: /etc/pam.d/common-auth
+        insertbefore: '^auth\s+\[success=4 default=ignore\]\s+pam_unix\.so\s+nullok'
+        line: "auth    required                        pam_faillock.so preauth audit"
+        state: present
+        backup: yes
+
+    - name: Configure PAM Faillock module Auth fail & success on /etc/pam.d/common-auth.
+      lineinfile:
+        path: /etc/pam.d/common-auth
+        line: "{{ item.line }}"
+        insertafter: "{{ item.insert_after }}"
+        state: present
+        backup: yes
+      loop:
+        - { line: 'auth    [default=die]                   pam_faillock.so authfail audit', insert_after: '^auth\s+\[success=3 default=ignore\]\s+pam_sss\.so\s+use_first_pass'  }
+        - { line: 'auth    sufficient                      pam_faillock.so authsucc audit', insert_after: '^auth\s+\[default=die\]\s+pam_faillock\.so\s+authfail\s+audit' }
+
+    - name: Configure PAM update Auth session settings deny unlocktime and nomagicroot for pam module /etc/pam.d/common-auth
+      lineinfile:
+        path: /etc/pam.d/common-auth
+        regexp: '^auth\s+required\s+pam_faillock\.so\s+preauth\s+audit$'
+        line: 'auth    required                        pam_faillock.so preauth silent audit deny=5 unlock_time=1800 no_magic_root reset'
+        state: present
+        backup: yes
+
+    - name: Configure PAM update Auth session settings deny unlocktime and nomagicroot for pam module /etc/pam.d/common-auth
+      lineinfile:
+        path: /etc/pam.d/common-auth
+        regexp: '^auth\s+\[default=die\]\s+pam_faillock\.so\s+authfail\s+audit$'
+        line: 'auth    [default=die]                   pam_faillock.so authfail audit deny=5 unlock_time=1800 no_magic_root'
+        state: present
+        backup: yes
+
+    - name: Configure PAM update Auth session settings deny unlocktime and nomagicroot for pam module /etc/pam.d/common-auth
+      lineinfile:
+        path: /etc/pam.d/common-auth
+        regexp: '^auth\s+sufficient\s+pam_faillock\.so\s+authsucc\s+audit$'
+        line: 'auth    sufficient                      pam_faillock.so authsucc audit deny=5 unlock_time=1800 no_magic_root reset'
+        state: present
+        backup: yes
+
+    - name: Configure PAM Faillock module on /etc/pam.d/common-account.
+      lineinfile:
+        path: /etc/pam.d/common-account
+        insertbefore: '^account\s+\[success=1 new_authtok_reqd=done default=ignore\]\s+pam_unix\.so'
+        line: "account required                        pam_faillock.so"
+        state: present
+        backup: yes
+
+    - name: configure Faillock settings on /etc/security/faillock.conf.
+      lineinfile:
+        path: /etc/security/faillock.conf
+        regexp: '{{ item.regexp }}'
+        line: '{{ item.line }}'
+        state: present
+        backup: yes
+      loop:
+        - { regexp: '^# deny = 3', line: 'deny = 5'}
+        - { regexp: '^# unlock_time = 600', line: 'unlock_time = 1800'}
+
+    - name: Set Time Out settings 1800 to /etc/profile
+      lineinfile:
+        path: /etc/profile
+        line: "TMOUT=1800"
+        state: present
+        backup: yes
+
+    - name: Update UMASK Settings to 022 for /etc/profile
+      lineinfile:
+        path: /etc/profile
+        line: "umask 022"
+        state: present
+        backup: yes
+
+    - name: Set Permission for below Security Files.
+      file:
+        path: /etc/hosts
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Create /etc/hosts.equiv file and set permission
+      file:
+        path: /etc/hosts.equiv
+        state: touch
+        mode: "0000"
+        owner: root
+        group: root
