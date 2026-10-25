@@ -1,0 +1,41 @@
+---
+- hosts: all
+  user: itadmin
+  become: yes
+
+  vars:
+    validation_input_file: "expected_pamcontent.txt"
+
+  tasks:
+    - name: Read Validation input file
+      slurp:
+        src: "{{ validation_input_file }}"
+      delegate_to: localhost
+      register: input_file_content
+
+    - name: Report Validation result
+      debug:
+        msg: "Validation: {{ input_file_content }}"
+
+
+
+    #    - name: validate updated paramaters
+    #  command: "grep -q {{ item }} /etc/security/pwquality.conf"
+    #  loop:
+    #   - "minlen = 8"
+    #   - "dcredit = -1"
+    # register: result_pwq
+    # ignore_errors: true
+
+    #- name: Validation Report
+    #  debug:
+    #    msg: >
+    #     Files parameter '{{ item.item }}':
+    #     {% if item.rc == 0 and 'found' in item.stdout %}
+    #     PASS
+    #     {% else %}
+    #     FAIL ({{ item.stderr | default(item.stdout) }})
+    #     {% endif %}
+    #   loop: "{{ result_pwq.results }}"
+    #   loop_control:
+    #     label: "{{ item.item }}"
