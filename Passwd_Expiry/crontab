@@ -1,0 +1,5 @@
+# Daily at 08:00 - notify users nearing password expiry
+0 8 * * *  /usr/local/sbin/notify_password_expiry.sh
+
+# 1st of every month at 01:00 - re-apply aging policy
+0 1 1 * *  /usr/local/sbin/set_aging_policy.sh
