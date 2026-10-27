@@ -58,7 +58,7 @@ getent passwd | awk -F: -v min="$MIN_UID" '$3>=min && $1!="nobody"{print $1}' | 
         printf "%b" "$body"
         echo
     else
-        printf "%b" "$body" | mail -s "$subject" ${ADMIN_MAIL:+-c "$ADMIN_MAIL"} "$user"
+        printf "%b" "$body" | mail -s "$subject" ${ADMIN_MAIL:+"$ADMIN_MAIL"} "$user"
         logger -t pw-expiry-notify "Notified $user: expires $expires ($days_left days)"
     fi
 done
