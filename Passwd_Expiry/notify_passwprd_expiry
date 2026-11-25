@@ -1,14 +1,20 @@
-r#!/bin/bash
+#!/bin/bash
 # Email users their password expiry date when it is within WARN_DAYS.
 # Run daily from cron. Requires: mailx/mail (mailutils) configured on the host.
 
 WARN_DAYS=14          # start notifying this many days before expiry
 MIN_UID=1000          # regular users only
+CHECK_ROOT='yes'
+FROM_MAIL="esrlabitadmin@gmail.com"
 ADMIN_MAIL="esrlabitadmin@gmail.com"   # CC for admins (leave empty to disable)
+CC_LIST="esrlabitadmin@gmail.com"
 
 today=$(date +%s)
 
-getent passwd | awk -F: -v min="$MIN_UID" '$3>=min && $1!="nobody"{print $1}' | while read -r user; do
+{
+        [[ "$CHECK_ROOT" == "yes" ]] && echo root
+        getent passwd | awk -F: -v min="$MIN_UID" '$3>=min && $1!="nobody"{print $1}'
+} | while read -r user; do
     expires=$(chage -l "$user" | awk -F': ' '/^Password expires/{print $2}')
     [[ -z "$expires" || "$expires" == "never" ]] && continue
 
@@ -17,14 +23,14 @@ getent passwd | awk -F: -v min="$MIN_UID" '$3>=min && $1!="nobody"{print $1}' | 
 
     if (( days_left <= WARN_DAYS )); then
         if (( days_left < 0 )); then
-            subject="[$(hostname)] Your password has EXPIRED"
+                subject="[$(hostname)]-[$user] Your password has EXPIRED"
             body="Hello $user,\n\nYour password on $(hostname) expired on $expires.\nPlease contact the administrator or change it immediately with: passwd\n"
         else
-            subject="[$(hostname)] Password expires in $days_left day(s)"
+                subject="[$(hostname)]-[$user] Password expires in $days_left day(s)"
             body="Hello $user,\n\nYour password on $(hostname) will expire on $expires ($days_left day(s) left).\nPlease change it now by running: passwd\n"
         fi
         # Mail goes to the local mailbox of the user; change to user@yourdomain.com if needed
-        printf "%b" "$body" | mail -s "$subject" ${ADMIN_MAIL:+"$ADMIN_MAIL"} "$user"
+        printf "%b" "$body" | mail -s "$subject" ${ADMIN_MAIL:+"$ADMIN_MAIL" $CC_LIST:+"$CC_LIST"}
         logger -t pw-expiry-notify "Notified $user: expires $expires ($days_left days)"
     fi
 done
