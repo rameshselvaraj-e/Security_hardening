@@ -10,8 +10,9 @@
 
 WARN_DAYS=14
 MIN_UID=1000
+CHECK_ROOT='yes'
 ADMIN_MAIL="esrlabitadmin@gmail.com"   # CC for admins (empty to disable)
-
+#CC)LIST=""
 MODE="send"
 case "$1" in
     --dry-run) MODE="dry" ;;
@@ -24,7 +25,10 @@ today=$(date +%s)
 
 [[ $MODE == "report" ]] && printf "%-15s %-14s %-10s %s\n" USER EXPIRES DAYS_LEFT WILL_NOTIFY
 
-getent passwd | awk -F: -v min="$MIN_UID" '$3>=min && $1!="nobody"{print $1}' | while read -r user; do
+{
+        [[ "$CHECK_ROOT" == "yes" ]] && echo root
+        getent passwd | awk -F: -v min="$MIN_UID" '$3>=min && $1!="nobody"{print $1}'
+} | while read -r user; do
     expires=$(chage -l "$user" | awk -F': ' '/^Password expires/{print $2}')
     if [[ -z "$expires" || "$expires" == "never" ]]; then
         [[ $MODE == "report" ]] && printf "%-15s %-14s %-10s %s\n" "$user" "never" "-" "no"
@@ -41,6 +45,12 @@ getent passwd | awk -F: -v min="$MIN_UID" '$3>=min && $1!="nobody"{print $1}' | 
     fi
     [[ $notify == "no" ]] && continue
 
+    if [[ "$user" == "root" && -n "$ADMIN_MAIL" ]]; then
+        to_addr="$ADMIN_MAIL"
+    else
+        to_addr="ADMIN_MAIL"
+    fi
+
     if (( days_left < 0 )); then
         subject="[$(hostname)] Your password has EXPIRED"
         body="Hello $user,\n\nYour password on $(hostname) expired on $expires.\nPlease contact the administrator or change it immediately with: passwd\n"
@@ -51,7 +61,7 @@ getent passwd | awk -F: -v min="$MIN_UID" '$3>=min && $1!="nobody"{print $1}' | 
 
     if [[ $MODE == "dry" ]]; then
         echo "=============================================="
-        echo "TO:      $user"
+        echo "TO:      $to_addr"
         [[ -n "$ADMIN_MAIL" ]] && echo "CC:      $ADMIN_MAIL"
         echo "SUBJECT: $subject"
         echo "----------------------------------------------"
